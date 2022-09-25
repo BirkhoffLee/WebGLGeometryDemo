@@ -6,7 +6,7 @@ attribute vec4 a_Color;
 varying vec4 v_Color;
 
 attribute float a_isPoint;
-// attribute float a_isSquare;
+attribute float a_isSquare;
 
 attribute float a_isCircle;
 varying float v_isCircle;
@@ -26,6 +26,8 @@ void main() {
   gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
 
   if (a_isCircle == 1.0) {
+    gl_PointSize = 20.0;
+  } else if (a_isSquare == 1.0) {
     gl_PointSize = 20.0;
   } else if (a_isPoint == 1.0) {
     gl_PointSize = 3.0;

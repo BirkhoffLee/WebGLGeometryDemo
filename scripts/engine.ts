@@ -1,5 +1,16 @@
 import { FSHADER_SOURCE, VSHADER_SOURCE } from './shaderSources.js';
 
+import { Color } from './color.js';
+
+import { Circle } from './class/Circle.js';
+import { HorizontalLine } from './class/HorizontalLine.js';
+import { Point } from './class/Point.js';
+import { Square } from './class/Square.js';
+import { Triangle } from './class/Triangle.js';
+import { VerticalLine } from './class/VerticalLine.js';
+
+import { EngineObjectQueue } from './class/EngineObjectQueue.js';
+
 export class Engine {
   canvas: HTMLCanvasElement;
   ctx: WebGL2RenderingContext;
@@ -12,8 +23,6 @@ export class Engine {
   shape: {
     code: 'p' | 'h' | 'v' | 't' | 'q' | 'c'
   };
-  
-  binaryFormat: { attribLocation: number; dataType: number; count: number; dataTypeSize: number; }[];
 
   // This stores internal locations of GLSL attribute variables.
   attribLocations?: {
@@ -21,6 +30,7 @@ export class Engine {
     a_Color: number;
     a_isCircle: number;
     a_isPoint: number;
+    a_isSquare: number;
   }
 
   // This stores internal locations of GLSL uniform variables.
@@ -28,15 +38,14 @@ export class Engine {
     u_resolution: WebGLUniformLocation;
   };
 
-  EnginePoints: Array<Point>;
-  EngineHorizontalLines: Array<Line>;
-  EngineVerticalLines: Array<Line>;
-  EngineTriangles: Array<Triangle>;
-  EngineSquares: Array<Square>;
-  EngineCircles: Array<Circle>;
+  binaryFormat: { attribLocation: number; dataType: number; count: number; dataTypeSize: number; }[];
 
-  EngineTemporaryTriangleVertices: Array<Point>;
-  EngineTemporarySquareVertices: Array<Point>;
+  EnginePointsQueue: EngineObjectQueue;
+  EngineHorizontalLinesQueue: EngineObjectQueue;
+  EngineVerticalLinesQueue: EngineObjectQueue;
+  EngineTrianglesQueue: EngineObjectQueue;
+  EngineSquaresQueue: EngineObjectQueue;
+  EngineCirclesQueue: EngineObjectQueue;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -46,16 +55,36 @@ export class Engine {
     if (!this.ctx) {
       throw new Error('Failed to get the rendering context for WebGL');
     }
-
-    this.EnginePoints = [];
-    this.EngineHorizontalLines = [];
-    this.EngineVerticalLines = [];
-    this.EngineTriangles = [];
-    this.EngineSquares = [];
-    this.EngineCircles = [];
-
-    this.EngineTemporaryTriangleVertices = [];
-    this.EngineTemporarySquareVertices = [];
+    
+    this.EnginePointsQueue = new EngineObjectQueue({
+      WebGLRenderingContext: this.ctx,
+      WebGLRenderingDrawMode: this.ctx.POINTS
+    });
+    
+    this.EngineHorizontalLinesQueue = new EngineObjectQueue({
+      WebGLRenderingContext: this.ctx,
+      WebGLRenderingDrawMode: this.ctx.LINES
+    });
+    
+    this.EngineVerticalLinesQueue = new EngineObjectQueue({
+      WebGLRenderingContext: this.ctx,
+      WebGLRenderingDrawMode: this.ctx.LINES
+    });
+    
+    this.EngineTrianglesQueue = new EngineObjectQueue({
+      WebGLRenderingContext: this.ctx,
+      WebGLRenderingDrawMode: this.ctx.TRIANGLES
+    });
+    
+    this.EngineSquaresQueue = new EngineObjectQueue({
+      WebGLRenderingContext: this.ctx,
+      WebGLRenderingDrawMode: this.ctx.POINTS
+    });
+    
+    this.EngineCirclesQueue = new EngineObjectQueue({
+      WebGLRenderingContext: this.ctx,
+      WebGLRenderingDrawMode: this.ctx.POINTS
+    });
 
     this.renderProgram = this.createAndLinkProgramWithShaders(
       this.compileShaderFromSource(this.ctx.VERTEX_SHADER, VSHADER_SOURCE.trim()),
@@ -82,6 +111,7 @@ export class Engine {
       a_Color: this.ctx.getAttribLocation(this.renderProgram, 'a_Color'),
       a_isCircle: this.ctx.getAttribLocation(this.renderProgram, 'a_isCircle'),
       a_isPoint: this.ctx.getAttribLocation(this.renderProgram, 'a_isPoint'),
+      a_isSquare: this.ctx.getAttribLocation(this.renderProgram, 'a_isSquare'),
     };
 
     this.uniformLocations = {
@@ -106,17 +136,23 @@ export class Engine {
         count: 3 // r, g, b
       },
       {
+        attribLocation: this.attribLocations.a_isPoint,
+        dataType: this.ctx.FLOAT,
+        dataTypeSize: Float32Array.BYTES_PER_ELEMENT,
+        count: 1
+      },
+      {
         attribLocation: this.attribLocations.a_isCircle,
         dataType: this.ctx.FLOAT,
         dataTypeSize: Float32Array.BYTES_PER_ELEMENT,
         count: 1
       },
       {
-        attribLocation: this.attribLocations.a_isPoint,
+        attribLocation: this.attribLocations.a_isSquare,
         dataType: this.ctx.FLOAT,
         dataTypeSize: Float32Array.BYTES_PER_ELEMENT,
         count: 1
-      }
+      },
     ];
 
     this.enableAttributes();
@@ -136,210 +172,66 @@ export class Engine {
     }
   }
 
-  // toggleFullscreen() {
-  //   if (!document.fullscreenElement) {
-  //     if (this.canvas.requestFullscreen)
-  //       this.canvas.requestFullscreen().catch((err) => {
-  //         alert(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
-  //       });
-
-  //     if (this.canvas.webkitRequestFullscreen)
-  //       this.canvas.webkitRequestFullscreen().catch((err) => {
-  //         alert(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
-  //       });
-  //   } else {
-  //     document.exitFullscreen();
-  //   }
-  // }
-
-  getPointsBinaryData() {
-    return new Float32Array(
-      this.EnginePoints
-        .map(p => [p.x, p.y, p.color.rgb, 0.0, 1.0])
-        .flat(3)
-    );
-  }
-
-  getCirclesBinaryData() {
-    return new Float32Array(
-      this.EngineCircles
-        .map(p => [p.x, p.y, p.color.rgb, 1.0, 0.0])
-        .flat(3)
-    );
-  }
-
-  getHorizontalLinesBinaryData() {
-    return new Float32Array(
-      this.EngineHorizontalLines
-        .map(l => l.map(p => [p.x, p.y, p.color.rgb, 0.0, 0.0]))
-        .flat(4)
-    );
-  }
-
-  getVerticalLinesBinaryData() {
-    return new Float32Array(
-      this.EngineVerticalLines
-        .map(l => l.map(p => [p.x, p.y, p.color.rgb, 0.0, 0.0]))
-        .flat(4)
-    );
-  }
-
-  getTrianglesBinaryData() {
-    return new Float32Array(
-      this.EngineTriangles
-        .map(t => t.map(v => [v.x, v.y, v.color.rgb, 0.0, 0.0]))
-        .flat(4)
-    );
-  }
-
-  getSquaresBinaryData() {
-    return new Float32Array(
-      this.EngineSquares
-        .map(s => s.map(t => t.map(p => [p.x, p.y, p.color.rgb, 0.0, 0.0])))
-        .flat(5)
-    );
-  }
-
   redrawFrame() {
     this.resizeCanvasToDisplaySize();
     this.ctx.viewport(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     this.ctx.uniform2f(this.uniformLocations.u_resolution, this.canvas.width, this.canvas.height);
     this.clearCanvas();
 
-    if (this.EnginePoints.length > 0) {
-      const binaryData = this.getPointsBinaryData();
-
-      this.ctx.bufferData(this.ctx.ARRAY_BUFFER, binaryData, this.ctx.STATIC_DRAW);
-      this.ctx.drawArrays(this.ctx.POINTS, 0, this.EnginePoints.length);
-    }
-
-    if (this.EngineCircles.length > 0) {
-      const binaryData = this.getCirclesBinaryData();
-
-      this.ctx.bufferData(this.ctx.ARRAY_BUFFER, binaryData, this.ctx.STATIC_DRAW);
-      this.ctx.drawArrays(this.ctx.POINTS, 0, binaryData.length / 6);
-    }
-
-    if (this.EngineHorizontalLines.length > 0) {
-      const binaryData = this.getHorizontalLinesBinaryData();
-
-      this.ctx.bufferData(this.ctx.ARRAY_BUFFER, binaryData, this.ctx.STATIC_DRAW);
-      this.ctx.drawArrays(this.ctx.LINES, 0, this.EngineHorizontalLines.length * 2);
-    }
-
-    if (this.EngineVerticalLines.length > 0) {
-      const binaryData = this.getVerticalLinesBinaryData();
-
-      this.ctx.bufferData(this.ctx.ARRAY_BUFFER, binaryData, this.ctx.STATIC_DRAW);
-      this.ctx.drawArrays(this.ctx.LINES, 0, this.EngineVerticalLines.length * 2);
-    }
-
-    if (this.EngineTriangles.length > 0) {
-      const binaryData = this.getTrianglesBinaryData();
-
-      this.ctx.bufferData(this.ctx.ARRAY_BUFFER, binaryData, this.ctx.STATIC_DRAW);
-      this.ctx.drawArrays(this.ctx.TRIANGLES, 0, this.EngineTriangles.length * 3);
-    }
-
-    if (this.EngineSquares.length > 0) {
-      const binaryData = this.getSquaresBinaryData();
-
-      this.ctx.bufferData(this.ctx.ARRAY_BUFFER, binaryData, this.ctx.STATIC_DRAW);
-      this.ctx.drawArrays(this.ctx.TRIANGLES, 0, this.EngineSquares.length * 6);
-    }
+    this.EnginePointsQueue.draw();
+    this.EngineCirclesQueue.draw();
+    this.EngineHorizontalLinesQueue.draw();
+    this.EngineVerticalLinesQueue.draw();
+    this.EngineTrianglesQueue.draw();
+    this.EngineSquaresQueue.draw();
   }
 
   addPoint(x: number, y: number) {
-    // This is a queue of length 5
-    if (this.EnginePoints.length == 5) {
-      this.EnginePoints.shift();
-    }
-
-    this.EnginePoints.push({
+    this.EnginePointsQueue.add(new Point({
       x,
       y,
       color: structuredClone(this.color)
-    });
+    }));
   }
 
-  addTriangle(t: Triangle) {
-    // At most 5 trangles at the same time
-    if (this.EngineTriangles.length == 5) {
-      this.EngineTriangles.shift();
-    }
-
-    this.EngineTriangles.push(t);
+  addSquare(x: number, y: number) {
+    this.EngineSquaresQueue.add(new Square({
+      x,
+      y,
+      color: structuredClone(this.color)
+    }));
   }
 
   addHorizontalLine(y: number) {
-    // At most 5 lines at the same time
-    if (this.EngineHorizontalLines.length == 5) {
-      this.EngineHorizontalLines.shift();
-    }
+    this.EngineHorizontalLinesQueue.add(new HorizontalLine({
+      y,
+      color: structuredClone(this.color)
+    }));
+  }
 
-    this.EngineHorizontalLines.push([
-      {
-        x: 0,
+  addCircle(x: number, y: number) {
+    this.EngineCirclesQueue.add(new Circle({
+      x,
+      y,
+      color: structuredClone(this.color)
+    }));
+  }
+
+  addTriangle(x: number, y: number) {
+    this.EngineTrianglesQueue.add(new Triangle({
+      centre: {
+        x,
         y,
-        color: structuredClone(this.color)
       },
-      {
-        x: Infinity,
-        y,
-        color: structuredClone(this.color)
-      }
-    ]);
-  }
-
-  addCircle(p: Point) {
-    // At most 5 circles at the same time
-    if (this.EngineCircles.length == 5) {
-      this.EngineCircles.shift();
-    }
-
-    this.EngineCircles.push(p);
-  }
-
-  addSquare(vertice1: Point, vertice2: Point) {
-    // At most 5 squares at the same time
-    if (this.EngineSquares.length == 5) {
-      this.EngineSquares.shift();
-    }
-
-    const square: Square = [
-      [
-        vertice1,
-        vertice2,
-        { x: vertice1.x, y: vertice2.y, color: structuredClone(this.color) },
-      ],
-      [
-        vertice1,
-        vertice2,
-        { x: vertice2.x, y: vertice1.y, color: structuredClone(this.color) },
-      ]
-    ];
-
-    this.EngineSquares.push(square);
+      color: structuredClone(this.color)
+    }));
   }
 
   addVerticalLine(x: number) {
-    // At most 5 lines at the same time
-    if (this.EngineVerticalLines.length == 5) {
-      this.EngineVerticalLines.shift();
-    }
-
-    this.EngineVerticalLines.push([
-      {
-        x,
-        y: 0,
-        color: structuredClone(this.color)
-      },
-      {
-        x,
-        y: Infinity,
-        color: structuredClone(this.color)
-      }
-    ]);
+    this.EngineVerticalLinesQueue.add(new VerticalLine({
+      x,
+      color: structuredClone(this.color)
+    }));
   }
 
   // Mouse events initiate shape drawings and fires redraw
@@ -353,7 +245,6 @@ export class Engine {
 
     // console.log("Mouseclick", clientX, clientY)
 
-    // Add a shape to corresponding shapes array depending on the current shape state.
     switch (this.shape.code) {
       case 'p':
         this.addPoint(clientX, clientY);
@@ -367,44 +258,16 @@ export class Engine {
         this.addVerticalLine(clientX);
         break;
 
+      case 'c':
+        this.addCircle(clientX, clientY);
+        break;
+
       case 't':
-        this.EngineTemporaryTriangleVertices.push({
-          x: clientX,
-          y: clientY,
-          color: structuredClone(this.color)
-        });
-
-        if (this.EngineTemporaryTriangleVertices.length == 3) {
-          this.addTriangle(structuredClone(this.EngineTemporaryTriangleVertices));
-          this.EngineTemporaryTriangleVertices = [];
-        }
-
+        this.addTriangle(clientX, clientY);
         break;
 
       case 'q':
-        this.EngineTemporarySquareVertices.push({
-          x: clientX,
-          y: clientY,
-          color: structuredClone(this.color)
-        });
-
-        if (this.EngineTemporarySquareVertices.length == 2) {
-          this.addSquare(
-            structuredClone(this.EngineTemporarySquareVertices[0]),
-            structuredClone(this.EngineTemporarySquareVertices[1]),
-          );
-
-          this.EngineTemporarySquareVertices = [];
-        }
-
-        break;
-
-      case 'c':
-        this.addCircle({
-          x: clientX,
-          y: clientY,
-          color: structuredClone(this.color)
-        });
+        this.addSquare(clientX, clientY);
         break;
 
       default:
@@ -417,14 +280,9 @@ export class Engine {
 
   // Key presses mutates engine runtime configuration
   keydownEvent(event: KeyboardEvent) {
-    // event.preventDefault();
     // console.log("Keydown", event.key);
 
     switch (event.key) {
-      // case 'f':
-      //   this.toggleFullscreen()
-      //   break;
-
       // Change color to red
       case 'r':
         this.color.code = 'r';
