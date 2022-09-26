@@ -5,7 +5,7 @@ export interface EngineObjectOptions {
   color: Color;
 }
 
-export class EngineObject {
+export class EngineObject implements EngineObjectOptions {
   color: Color;
   _vertices: Vertice[];
 
