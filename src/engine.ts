@@ -13,7 +13,7 @@ import { EngineObjectQueue } from './class/EngineObjectQueue';
 
 export class Engine {
   canvas: HTMLCanvasElement;
-  ctx: WebGL2RenderingContext;
+  #ctx: WebGL2RenderingContext | null;
   renderProgram: WebGLProgram;
 
   // The color used for new shapes drawn.
@@ -25,7 +25,7 @@ export class Engine {
   };
 
   // This stores internal locations of GLSL attribute variables.
-  attribLocations?: {
+  attribLocations: {
     a_Position: number;
     a_Color: number;
     a_isCircle: number;
@@ -34,8 +34,8 @@ export class Engine {
   }
 
   // This stores internal locations of GLSL uniform variables.
-  uniformLocations?: {
-    u_resolution: WebGLUniformLocation;
+  uniformLocations: {
+    u_resolution: WebGLUniformLocation | null;
   };
 
   binaryFormat: { attribLocation: number; dataType: number; count: number; dataTypeSize: number; }[];
@@ -47,40 +47,48 @@ export class Engine {
   EngineSquaresQueue: EngineObjectQueue;
   EngineCirclesQueue: EngineObjectQueue;
 
+  get ctx(): WebGL2RenderingContext {
+    if (this.#ctx === null)
+      throw new Error('Failed to get the rendering context for WebGL');
+
+    return this.#ctx;
+  }
+
+  set ctx(c: WebGL2RenderingContext | null) {
+    this.#ctx = c;
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
+
     this.ctx = canvas.getContext('webgl2');
     this.ctx.getExtension('OES_standard_derivatives');
 
-    if (!this.ctx) {
-      throw new Error('Failed to get the rendering context for WebGL');
-    }
-    
     this.EnginePointsQueue = new EngineObjectQueue({
       WebGLRenderingContext: this.ctx,
       WebGLRenderingDrawMode: this.ctx.POINTS
     });
-    
+
     this.EngineHorizontalLinesQueue = new EngineObjectQueue({
       WebGLRenderingContext: this.ctx,
       WebGLRenderingDrawMode: this.ctx.LINES
     });
-    
+
     this.EngineVerticalLinesQueue = new EngineObjectQueue({
       WebGLRenderingContext: this.ctx,
       WebGLRenderingDrawMode: this.ctx.LINES
     });
-    
+
     this.EngineTrianglesQueue = new EngineObjectQueue({
       WebGLRenderingContext: this.ctx,
       WebGLRenderingDrawMode: this.ctx.TRIANGLES
     });
-    
+
     this.EngineSquaresQueue = new EngineObjectQueue({
       WebGLRenderingContext: this.ctx,
       WebGLRenderingDrawMode: this.ctx.POINTS
     });
-    
+
     this.EngineCirclesQueue = new EngineObjectQueue({
       WebGLRenderingContext: this.ctx,
       WebGLRenderingDrawMode: this.ctx.POINTS
@@ -117,6 +125,16 @@ export class Engine {
     this.uniformLocations = {
       u_resolution: this.ctx.getUniformLocation(this.renderProgram, 'u_resolution'),
     };
+
+    // If any of the uniformLocations was null
+    if (Object.values(this.attribLocations).some(loc => loc === -1)) {
+      throw new Error('Failed to get some WebGL attribute locations');
+    }
+
+    // If any of the uniformLocations was null
+    if (Object.values(this.uniformLocations).some(loc => loc === null)) {
+      throw new Error('Failed to get some WebGL uniform locations');
+    }
 
     // Initialise VBO
     this.ctx.bindBuffer(this.ctx.ARRAY_BUFFER, this.ctx.createBuffer());
@@ -282,6 +300,11 @@ export class Engine {
   keydownEvent(event: KeyboardEvent) {
     // console.log("Keydown", event.key);
 
+    const modeLabelElement = document.getElementById("mode");
+
+    if (!modeLabelElement)
+      throw new Error('mode element was not found');
+
     switch (event.key) {
       // Change color to red
       case 'r':
@@ -304,37 +327,37 @@ export class Engine {
       // change draw shape to point
       case 'p':
         this.shape.code = 'p';
-        document.getElementById("mode").innerText = "point";
+        modeLabelElement.innerText = "point";
         break;
 
       // change draw shape to horizontal line
       case 'h':
         this.shape.code = 'h';
-        document.getElementById("mode").innerText = "horizontal line";
+        modeLabelElement.innerText = "horizontal line";
         break;
 
       // change draw shape to vertical line
       case 'v':
         this.shape.code = 'v';
-        document.getElementById("mode").innerText = "vertical line";
+        modeLabelElement.innerText = "vertical line";
         break;
 
       // change draw shape to triangle
       case 't':
         this.shape.code = 't';
-        document.getElementById("mode").innerText = "triangle";
+        modeLabelElement.innerText = "triangle";
         break;
 
       // change draw shape to square
       case 'q':
         this.shape.code = 'q';
-        document.getElementById("mode").innerText = "square";
+        modeLabelElement.innerText = "square";
         break;
 
       // change draw shape to circle
       case 'c':
         this.shape.code = 'c';
-        document.getElementById("mode").innerText = "circle";
+        modeLabelElement.innerText = "circle";
         break;
 
       default:
@@ -350,6 +373,9 @@ export class Engine {
   createAndLinkProgramWithShaders(...shaders: Array<WebGLShader>): WebGLProgram {
     const program = this.ctx.createProgram();
 
+    if (!program)
+      throw new Error("Failed to create new WebGL program");
+
     for (const shader of shaders) {
       this.ctx.attachShader(program, shader);
     }
@@ -357,8 +383,9 @@ export class Engine {
     this.ctx.linkProgram(program);
 
     if (!this.ctx.getProgramParameter(program, this.ctx.LINK_STATUS)) {
+      const logs = this.ctx.getProgramInfoLog(program) || "";
       this.ctx.deleteProgram(program);
-      throw new Error(this.ctx.getProgramInfoLog(program))
+      throw new Error("Failed to link new WebGL program:" + logs)
     }
 
     return program;
@@ -367,12 +394,16 @@ export class Engine {
   compileShaderFromSource(type: number, code: string): WebGLShader {
     const shader = this.ctx.createShader(type);
 
+    if (!shader)
+      throw new Error("Failed to create new WebGL shader");
+
     this.ctx.shaderSource(shader, code);
     this.ctx.compileShader(shader);
 
     if (!this.ctx.getShaderParameter(shader, this.ctx.COMPILE_STATUS)) {
+      const logs = this.ctx.getShaderInfoLog(shader) || "";
       this.ctx.deleteShader(shader);
-      throw new Error(this.ctx.getShaderInfoLog(shader));
+      throw new Error("Failed to link new WebGL program:" + logs);
     }
 
     return shader;
