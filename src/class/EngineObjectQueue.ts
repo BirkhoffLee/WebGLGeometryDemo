@@ -1,4 +1,4 @@
-import { EngineObject } from "./EngineObject.js";
+import { EngineObject } from "./EngineObject";
 
 export interface EngineObjectQueueOptions {
   WebGLRenderingContext: WebGLRenderingContext;
@@ -26,7 +26,6 @@ export class EngineObjectQueue implements EngineObjectQueueOptions {
   }
   
   add(o: EngineObject) {
-    // At most 5 circles at the same time
     if (this.queue.length == 5) {
       this.queue.shift();
     }

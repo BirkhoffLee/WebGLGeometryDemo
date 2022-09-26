@@ -1,5 +1,5 @@
-import { EngineObject, EngineObjectOptions } from './EngineObject.js';
-import { Vertice } from './Vertice.js';
+import { EngineObject, EngineObjectOptions } from './EngineObject';
+import { Vertice } from './Vertice';
 
 export interface TriangleOptions extends EngineObjectOptions {
   centre: {
@@ -14,8 +14,6 @@ export class Triangle extends EngineObject implements TriangleOptions {
     y: number;
   };
   internalLength: number;
-  
-  _vertices: Vertice[];
 
   constructor(options: TriangleOptions) {
     super(options);

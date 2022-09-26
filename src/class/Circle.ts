@@ -1,5 +1,5 @@
-import { EngineObject, EngineObjectOptions } from './EngineObject.js';
-import { Vertice } from './Vertice.js';
+import { EngineObject, EngineObjectOptions } from './EngineObject';
+import { Vertice } from './Vertice';
 
 export interface CircleOptions extends EngineObjectOptions {
   x: number;
@@ -9,8 +9,6 @@ export interface CircleOptions extends EngineObjectOptions {
 export class Circle extends EngineObject implements CircleOptions {
   x: number;
   y: number;
-  
-  _vertices: Vertice[];
 
   constructor(options: CircleOptions) {
     super(options);

@@ -3,11 +3,11 @@
     "noImplicitAny": true,
     "removeComments": true,
     "preserveConstEnums": true,
-    "outDir": "./js",
+    "outDir": "lib",
     "allowJs": true,
     "moduleResolution": "node",
     "target": "es6",
-    "inlineSourceMap": true,
+    // "inlineSourceMap": true,
     "lib": [
       "es2019",
       "dom",
@@ -16,6 +16,7 @@
     "esModuleInterop": true
   },
   "include": [
-    "scripts/*.ts"
+    // "src/**/*.ts"
+    ""
   ]
 }

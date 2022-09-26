@@ -1,5 +1,5 @@
-import { EngineObject, EngineObjectOptions } from './EngineObject.js';
-import { Vertice } from './Vertice.js';
+import { EngineObject, EngineObjectOptions } from './EngineObject';
+import { Vertice } from './Vertice';
 
 export interface VerticalLineOptions extends EngineObjectOptions {
   x: number;
@@ -7,8 +7,6 @@ export interface VerticalLineOptions extends EngineObjectOptions {
 
 export class VerticalLine extends EngineObject implements VerticalLineOptions {
   x: number;
-  
-  _vertices: Vertice[];
 
   constructor(options: VerticalLineOptions) {
     super(options);

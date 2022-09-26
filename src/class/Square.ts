@@ -1,5 +1,5 @@
-import { EngineObject, EngineObjectOptions } from './EngineObject.js';
-import { Vertice } from './Vertice.js';
+import { EngineObject, EngineObjectOptions } from './EngineObject';
+import { Vertice } from './Vertice';
 
 export interface SquareOptions extends EngineObjectOptions {
   x: number;
@@ -9,8 +9,6 @@ export interface SquareOptions extends EngineObjectOptions {
 export class Square extends EngineObject implements SquareOptions {
   x: number;
   y: number;
-
-  _vertices: Vertice[];
 
   constructor(options: SquareOptions) {
     super(options);

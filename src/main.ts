@@ -1,4 +1,4 @@
-import { Engine } from './engine.js';
+import { Engine } from './engine';
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
 

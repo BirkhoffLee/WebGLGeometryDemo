@@ -1,15 +1,15 @@
-import { FSHADER_SOURCE, VSHADER_SOURCE } from './shaderSources.js';
+import { FSHADER_SOURCE, VSHADER_SOURCE } from './shaderSources';
 
-import { Color } from './color.js';
+import { Color } from './color';
 
-import { Circle } from './class/Circle.js';
-import { HorizontalLine } from './class/HorizontalLine.js';
-import { Point } from './class/Point.js';
-import { Square } from './class/Square.js';
-import { Triangle } from './class/Triangle.js';
-import { VerticalLine } from './class/VerticalLine.js';
+import { Circle } from './class/Circle';
+import { HorizontalLine } from './class/HorizontalLine';
+import { Point } from './class/Point';
+import { Square } from './class/Square';
+import { Triangle } from './class/Triangle';
+import { VerticalLine } from './class/VerticalLine';
 
-import { EngineObjectQueue } from './class/EngineObjectQueue.js';
+import { EngineObjectQueue } from './class/EngineObjectQueue';
 
 export class Engine {
   canvas: HTMLCanvasElement;

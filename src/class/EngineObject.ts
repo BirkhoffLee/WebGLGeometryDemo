@@ -1,5 +1,5 @@
-import { Vertice } from './Vertice.js';
-import { Color } from '../color.js';
+import { Vertice } from './Vertice';
+import { Color } from '../color';
 
 export interface EngineObjectOptions {
   color: Color;
