@@ -126,12 +126,12 @@ export class Engine {
       u_resolution: this.ctx.getUniformLocation(this.renderProgram, 'u_resolution'),
     };
 
-    // If any of the uniformLocations was null
+    // If any of the attribLocations was not found
     if (Object.values(this.attribLocations).some(loc => loc === -1)) {
       throw new Error('Failed to get some WebGL attribute locations');
     }
 
-    // If any of the uniformLocations was null
+    // If any of the uniformLocations was not found
     if (Object.values(this.uniformLocations).some(loc => loc === null)) {
       throw new Error('Failed to get some WebGL uniform locations');
     }
